@@ -6,22 +6,27 @@ import { Socket } from 'dgram';
 const log = console.log;
 const STATUS_DOWN = "DOWN";
 const STATUS_UP = "UP";
-const status = {};
+const statusTemplate = {};
 
-if (process.argv.length != 4) {
-    log("usage: node ./index.js <host> <port>");
+if (process.argv.length < 4) {
+    log("usage: node ./index.js <host> <port> [...<additional_ports>]");
     process.exit(1);
 }
 
 const host = process.argv[2];
-const port = Number.parseInt(process.argv[3]);
+const portStrings = process.argv.slice(3);
+// Validate ports
+portStrings.forEach(s => {
+    const p = Number.parseInt(s);
+    if (Number.isNaN(p)) {
+        log(`Invalid port ${s}. Ports should all be numbers.`);
+        process.exit(1);
+    }
+});
 
-if (Number.isNaN(port)) {
-    log("<port> should be a number");
-    process.exit(1);
-}
+const ports = portStrings.map(x => Number.parseInt(x));
 
-log(`Host: ${host}\nPort: ${port}`);
+statusTemplate['host'] = host;
 
 // DNS lookup
 
@@ -46,8 +51,8 @@ try {
 }
 
 if (!records4 && !records6) {
-    status['status'] = STATUS_DOWN;
-    status['reason'] = `DNS lookup error. No records for ${host}`;
+    statusTemplate['status'] = STATUS_DOWN;
+    statusTemplate['reason'] = `DNS lookup error. No records for ${host}`;
     log(status);
     process.exit(1);
 }
@@ -63,41 +68,46 @@ if (records4) {
     dnsDelay = endDns6 - startDns6;
 }
 
-status['dns-delay-ms'] = dnsDelay;
-status['address'] = address;
+statusTemplate['dns-delay-ms'] = dnsDelay;
+statusTemplate['address'] = address;
 
 
-// TCP Connection
-const connectionOptions = {
-    'port': port,
-    'host': address,
-    'family': 0,
-};
-
-let connectStart = performance.now();
-
-let s = new net.Socket()
-                .setTimeout(5 * 1000)
-                .connect(connectionOptions);
-
-s.on('connect', () => {
-    let connectEnd = performance.now();
-    status['connection-delay-ms'] = connectEnd - connectStart;
-    status["status"] = STATUS_UP;
-    log(status);
-    s.end();
-});
-
-s.on('timeout', () => {
-    status['status'] = STATUS_DOWN;
-    status['reason'] = 'Timeout';
-    log(status);
-    s.destroy();
-});
-
-s.on('error', (e) => {
-    status['status'] = STATUS_DOWN;
-    status['reason'] = e,
-    log(status);
-    // the socket code calls close() after an 'error' event.
-});
+for (let port of ports) {
+    let status = Object.assign({}, statusTemplate);
+    status['port'] = port;
+    
+    // TCP Connection
+    const connectionOptions = {
+        'port': port,
+        'host': address,
+        'family': 0,
+    };
+    
+    let connectStart = performance.now();
+    
+    let s = new net.Socket()
+                    .setTimeout(5 * 1000)
+                    .connect(connectionOptions);
+    
+    s.on('connect', () => {
+        let connectEnd = performance.now();
+        status['connection-delay-ms'] = connectEnd - connectStart;
+        status["status"] = STATUS_UP;
+        log(status);
+        s.end();
+    });
+    
+    s.on('timeout', () => {
+        status['status'] = STATUS_DOWN;
+        status['reason'] = 'Timeout';
+        log(status);
+        s.destroy();
+    });
+    
+    s.on('error', (e) => {
+        status['status'] = STATUS_DOWN;
+        status['reason'] = e,
+        log(status);
+        // the socket code calls close() after an 'error' event.
+    });
+}
