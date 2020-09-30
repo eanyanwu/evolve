@@ -1,6 +1,7 @@
 import { promises as dns } from 'dns';
 import { performance } from 'perf_hooks';
 import net from 'net';
+import { Socket } from 'dgram';
 
 const log = console.log;
 const STATUS_DOWN = "DOWN";
@@ -47,6 +48,7 @@ try {
 if (!records4 && !records6) {
     status['status'] = STATUS_DOWN;
     status['reason'] = `DNS lookup error. No records for ${host}`;
+    log(status);
     process.exit(1);
 }
 
@@ -69,11 +71,18 @@ status['address'] = address;
 const connectionOptions = {
     'port': port,
     'host': address,
-    'timeout': 5 * 1000,
     'family': 0,
 };
 
-let s = net.createConnection(connectionOptions, () => {
+let connectStart = performance.now();
+
+let s = new net.Socket()
+                .setTimeout(5 * 1000)
+                .connect(connectionOptions);
+
+s.on('connect', () => {
+    let connectEnd = performance.now();
+    status['connection-delay-ms'] = connectEnd - connectStart;
     status["status"] = STATUS_UP;
     log(status);
     s.end();
