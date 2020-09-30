@@ -1,0 +1,10 @@
+{
+  "name": "evolve",
+  "version": "1.0.0",
+  "description": "https://rachelbythebay.com/w/2020/09/20/evolve/",
+  "main": "index.js",
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
