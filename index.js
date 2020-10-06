@@ -1,48 +1,65 @@
+import http from 'http';
 import resolveHostnames from './resolveHostnames.js';
 import pingAddresses from './pingAddresses.js';
 
-const log = console.log;
+async function ping(targets) {
+  const resolvedTargets = await resolveHostnames(Object.getOwnPropertyNames(targets));
 
-if (process.argv.length < 3) {
-  log('usage: node index.js <hostname1:port1:port2:port3> | <hostname2:...> | ...');
-  process.exit(1);
+  let connectionTargets = [];
+  let failedDns = [];
+
+  for (const resolvedTarget of resolvedTargets) {
+    if (resolvedTarget.dnsError) {
+      failedDns.push(resolvedTarget);
+      continue;
+    }
+    for (const port of targets[resolvedTarget.hostname]) {
+      connectionTargets.push({
+        port,
+        ...resolvedTarget
+      });
+    }
+  }
+
+  const connectionResults = await pingAddresses(connectionTargets, 5_000);
+
+  return [...connectionResults, ...failedDns];
 }
 
-const pingTargets = process.argv.slice(2).reduce((acc, curr) => {
-  const parts = curr.split(':');
-  const hostname = parts[0];
-  const ports = parts.slice(1).map(s => Number.parseInt(s));
-  acc[hostname] = ports;
-  return acc;
-}, {});
+function handleRequest(request, response) {
+  const url = new URL(request.url, `http://${request.headers.host}`);
+  if (url.pathname !== '/ping') {
+    response.statusCode = 404;
+    response.statusMessage = http.STATUS_CODES[response.statusCode];
+    response.end();
+  } else {
+    const skipCache = url.searchParams['skipCache'];
+    const cacheTTL = url.searchParams['cacheTTL'];
 
-log('PING TARGETS');
-log(pingTargets);
+    let data = '';
 
-const resolvedTargets = await resolveHostnames(Object.getOwnPropertyNames(pingTargets));
+    request.setEncoding('utf8');
 
-log('RESOLVED TARGETS');
-log(resolvedTargets);
-
-let connectionTargets = [];
-let failedDns = [];
-
-for (const resolvedTarget of resolvedTargets) {
-  if (resolvedTarget.dnsError) {
-    failedDns.push(resolvedTarget);
-    continue;
-  }
-  for (const port of pingTargets[resolvedTarget.hostname]) {
-    connectionTargets.push({
-      port,
-      ...resolvedTarget
+    request.on('data', (chunk) => {
+      data += chunk;
+    });
+    
+    request.on('error', (err) => {
+      console.log('Error reading request body');
+      console.log(err);
+    });
+    
+    request.on('end', async () => {
+      let input = JSON.parse(data);
+      let output = await ping(input);
+      response.write(JSON.stringify(output, null, 1));
+      response.statusCode = 200;
+      response.statusMessage = http.STATUS_CODES[response.statustCode];
+      response.end();
     });
   }
 }
 
-log('CONNECTION TARGETS');
-log(connectionTargets);
+const server = http.createServer(handleRequest);
 
-const pingResults = await pingAddresses(connectionTargets, 5_000);
-log('PING RESULTS');
-log([...pingResults, ...failedDns]);
+server.listen(8081);
