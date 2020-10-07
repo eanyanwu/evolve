@@ -1,13 +1,14 @@
 import http from 'http';
 import resolveHostnames from './resolveHostnames.js';
 import pingAddresses from './pingAddresses.js';
+import cache from './cache.js';
 
 function log(msg) {
-  console.log(`${new Date(Date.now()).toISOString()}|${msg}`);
+  console.log(`${new Date(Date.now()).toISOString()}|%O`, msg);
 }
 
 function error(msg) {
-  console.error(`${new Date(Date.now()).toISOString()}|${msg}`);
+  console.error(`${new Date(Date.now()).toISOString()}|%O`, msg);
 }
 
 function closeConnection(response, statusCode) {
@@ -16,15 +17,48 @@ function closeConnection(response, statusCode) {
   response.end();
 }
 
+async function subtractCachedTargets(targets) {
+  const promises = [];
+
+  for (const [ hostname, ports ] of Object.entries(targets)) {
+    for (const port of ports) {
+      promises.push(cache.get(`pingsvc-${hostname}-${port}`).then((cached) => cached));
+    }
+  }
+  const lol = await Promise.allSettled(promises);
+  const cachedResults =lol.filter(p => p.status === 'fulfilled' && p.value)
+                          .map(p => JSON.parse(p.value));
+
+  for (const { hostname, port } of cachedResults) {
+    const idx = targets[hostname].indexOf(port);
+    if (idx > -1) {
+      targets[hostname].splice(idx, 1);
+    }
+
+    if (targets[hostname].length === 0) {
+      delete targets[hostname];
+    }
+  }
+  return cachedResults;
+}
+
+function cacheResults(results, ttl) {
+  const promises = [];
+  for (const r of results) {
+    promises.push(cache.set(`pingsvc-${r.hostname}-${r.port}`, JSON.stringify(r), ttl));
+  }
+
+  return Promise.all(promises);
+}
+
 async function ping(targets) {
   // The structure of the data should be like so:
   // {
   //   "example.org": [80, 443],
   //   "example.com": [22]
   // }
-  // hence the use of `Object.getOwnPropertyNames()`
-
-  const hostnames = Object.getOwnPropertyNames(targets);
+  // hence the use of `Object.keys()`
+  const hostnames = Object.keys(targets);
 
   log(`PING REQUEST: ${hostnames.length} hostname(s)`);
 
@@ -62,8 +96,16 @@ function handleRequest(request, response) {
     return;
   } 
 
-  const skipCache = url.searchParams['skipCache'];
-  const cacheTTL = url.searchParams['cacheTTL'];
+  const skipCache = url.searchParams.get('skipCache') && 
+                    url.searchParams.get('skipCache').toLowerCase() === 'true';
+
+  const cacheTTL = Number.parseInt(url.searchParams.get('cacheTTL')) || 30;
+
+  log(`REQUESTED ${cacheTTL}s CACHETTL`);
+  
+  if (skipCache) {
+    log(`REQUESTED SKIP CACHE`);
+  }
 
   let data = '';
 
@@ -84,10 +126,13 @@ function handleRequest(request, response) {
       return;
     }
 
-    let output = {};
+    let output;
 
     try {
-      output = await ping(input);
+      const cachedResults = await subtractCachedTargets(input);
+      const newResults = await ping(input);
+      await cacheResults(newResults, cacheTTL);
+      output = [...newResults, ...cachedResults];
     } catch (e) {
       error(e);
       closeConnection(response, 500);
