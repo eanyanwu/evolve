@@ -1,11 +1,11 @@
 import http from 'http';
 
 export function log(msg) {
-  console.log(`${new Date(Date.now()).toISOString()}|%O`, msg);
+  console.log(`${process.pid}|${new Date(Date.now()).toISOString()}|%O`, msg);
 }
 
 export function error(msg) {
-  console.error(`${new Date(Date.now()).toISOString()}|%O`, msg);
+  console.error(`${process.pid}|${new Date(Date.now()).toISOString()}|%O`, msg);
 }
 
 
