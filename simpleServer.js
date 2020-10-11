@@ -41,7 +41,6 @@ function createSimpleHTTPServer(listenOptions) {
   return server;
 }
 
-
 export default {
   startNew: (options, requestHandler) => {
     if (requestHandler) {
@@ -56,7 +55,10 @@ export default {
     server.listen(options);
 
     return {
-      stop: () => server.close(),
+      stop: (callback) => {
+        server.close(callback);
+      },
+      listening: () => server.listening,
     };
   },
 };

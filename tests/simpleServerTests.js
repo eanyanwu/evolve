@@ -3,13 +3,14 @@ import http from 'http';
 import net from 'net';
 import serv from '../simpleServer.js';
 
-describe.only('The simple server', () => {
-  const HOST = '127.0.0.1';
-  const PORT = 8081;
-
+describe('The simple server', () => {
+  let HOST;
+  let PORT;
   let s;
 
   beforeEach(() => {
+    HOST = '127.0.0.1';
+    PORT = 8081;
     s = serv.startNew({
       host: HOST,
       port: PORT,
@@ -54,8 +55,11 @@ describe.only('The simple server', () => {
 
     socket.on('data', (data) => {
       assert.ok(data.includes('400 Bad Request'), 'unexpeced server response');
-      socket.destroy();
-      done();
+      setTimeout(() => {
+        assert.ok(s.listening(), 'expected server to still be up');
+        socket.destroy();
+        done();
+      });
     });
 
     socket.on('timeout', () => {
