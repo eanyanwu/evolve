@@ -1,6 +1,7 @@
 import http from 'http';
 import { strict as assert } from 'assert';
 import { log, error } from './utils.js';
+import { performance } from 'perf_hooks';
 
 function createSimpleHTTPServer(requestHandler) {
   const server = http.createServer();
@@ -76,9 +77,17 @@ function createSimpleHTTPServer(requestHandler) {
   return server;
 }
 
-function metricsHandler({ method, pathname, res }) {
- console.log('server metrics!'); 
- res.end();
+function metricsHandler({ method, path, res }) {
+  if (path === '/_server_metrics/elu') {
+    const elu = performance.eventLoopUtilization();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.write(JSON.stringify(elu));
+    res.end();
+  }
+  else {
+    res.writeHead(404);
+    res.end();
+  }
 }
 
 export default {
