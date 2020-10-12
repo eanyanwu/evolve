@@ -1,9 +1,9 @@
 import { strict as assert } from 'assert';
 import http from 'http';
 import net from 'net';
-import serv from '../simpleServer.js';
+import serv from '../simpleHTTPServer.js';
 
-describe('The simple server', () => {
+describe('The simple http server', () => {
   let HOST;
   let PORT;
   let s;
@@ -54,9 +54,9 @@ describe('The simple server', () => {
     socket.setEncoding('utf8');
 
     socket.on('data', (data) => {
-      assert.ok(data.includes('400 Bad Request'), 'unexpeced server response');
-      setTimeout(() => {
-        assert.ok(s.listening(), 'expected server to still be up');
+      assert.equal(data.includes('400 Bad Request'), true, 'unexpeced server response');
+      setImmediate(() => {
+        assert.equal(s.isListening(), true, 'expected server to still be up');
         socket.destroy();
         done();
       });
@@ -76,5 +76,21 @@ describe('The simple server', () => {
     });
 
     socket.write('Not HTTP');
+  });
+
+  it('handles the error event', (done) => {
+    let newServer = serv.startNew({
+      host: HOST,
+      port: PORT,
+    });
+    
+    assert.equal(newServer.isClosed(), false);
+
+    // If we are not handling node would throw an exception and 
+    // this test would fail.
+    setImmediate(() => {
+      assert.equal(newServer.isClosed(), true);
+      done();
+    });
   });
 });

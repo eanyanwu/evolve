@@ -4,28 +4,18 @@ import { log, error } from './utils.js';
 
 function createSimpleHTTPServer(listenOptions) {
   const server = http.createServer();
+  server.closed = false;
 
   server.on('listening', () => {
     const { address, port } = server.address();
     log(`Process is listening on ${address}:${port}.`);
   });
 
-  server.on('request', (req, res) => {
-  });
-
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      log('Address in use, retrying...');
-      setTimeout(() => {
-        server.close();
-        server.listen(listenOptions);
-      }, 5000);
-    } else {
-      error(err);
-      error(`Unexpected error occured. Closing...`);
-      server.close();
-    }
-  });
+ server.on('error', (err) => {
+   error(err);
+   error(`Unexpected error occured. Closing...`);
+   server.close();
+ });
 
   server.on('clientError', (err, socket) => {
     if (err.code === 'ECONNRESET' || !socket.writable) {
@@ -35,7 +25,8 @@ function createSimpleHTTPServer(listenOptions) {
   });
 
   server.on('close', () => {
-    log('Server closing');
+    server.closed = true;
+    log('Server closing.');
   });
 
   return server;
@@ -43,22 +34,24 @@ function createSimpleHTTPServer(listenOptions) {
 
 export default {
   startNew: (options, requestHandler) => {
-    if (requestHandler) {
-      assert.ok(typeof(requestHandler) === 'function');
-    }
-    assert.ok(typeof(options) === 'object');
-    assert.ok(options != null);
+    assert.equal(typeof(options), 'object');
+    assert.notEqual(options, null);
 
     const server = createSimpleHTTPServer(options);
-    server.on('request', requestHandler);
     
+    if (requestHandler) {
+      assert.equal(typeof(requestHandler), 'function');
+      server.on('request', requestHandler);
+    }
+
     server.listen(options);
 
     return {
       stop: (callback) => {
         server.close(callback);
       },
-      listening: () => server.listening,
+      isListening: () => server.listening,
+      isClosed: () => server.closed,
     };
   },
 };

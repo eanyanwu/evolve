@@ -1,14 +1,12 @@
 import resolveHostnames from '../resolveHostnames.js';
 import pingAddresses from '../pingAddresses.js';
-import pkg from 'chai';
-
-const { expect } = pkg;
+import { strict as assert } from 'assert';
 
 describe('pingAddresses', () => {
   it('Handles an empty list of connection options', async () => {
     const results = await pingAddresses([]);
 
-    expect(results.length).to.equal(0);
+    assert.equal(results.length, 0);
   });
 
   it('Records the connection delay for succesful connections', async () => {
@@ -24,9 +22,9 @@ describe('pingAddresses', () => {
 
     const result = await pingAddresses([connectionOption], 10_000);
 
-    expect(result.length).to.equal(1);
-    expect(result[0].hostname).to.equal('example.org');
-    expect(result[0]).to.have.own.property('connectionDelay');
+    assert.equal(result.length, 1);
+    assert.equal(result[0].hostname, 'example.org');
+    assert.equal(result[0].hasOwnProperty('connectionDelay'), true);
   });
 
   it('Records a timeout error for connections to invalid targets', async () => {
@@ -41,7 +39,7 @@ describe('pingAddresses', () => {
 
     const result = await pingAddresses([connectionOption], 1_000);
 
-    expect(result.length).to.equal(1);
-    expect(result[0].connectionError).to.equal('Timeout');
+    assert.equal(result.length, 1);
+    assert.equal(result[0].connectionError, 'Timeout');
   });
 });

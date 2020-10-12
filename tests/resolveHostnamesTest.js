@@ -1,12 +1,11 @@
 import resolveHostnames from '../resolveHostnames.js';
-import pkg from 'chai';
+import { strict as assert } from 'assert';
 
-const { expect } = pkg;
 
 describe('resolveHostnames', () => {
   it('does nothing when given an empty array of hostnames', async () => {
     let results = await resolveHostnames([]);
-    expect(results.length).to.equal(0);
+    assert.equal(results.length, 0);
   });
 
   it('correctly resolves a list of valid hostnames', async () => {
@@ -16,13 +15,13 @@ describe('resolveHostnames', () => {
       'example.org'
     ]);
 
-    expect(results.length).to.equal(3);
+    assert.equal(results.length, 3);
     
     for (const result of results) {
-      expect(result).to.be.an('object');
-      expect(result).to.have.own.property('hostname');
-      expect(result).to.have.own.property('address');
-      expect(result).to.have.own.property('dnsDelay');
+      assert.equal(typeof(result), 'object');
+      assert.equal(result.hasOwnProperty('hostname'), true);
+      assert.equal(result.hasOwnProperty('address'), true);
+      assert.equal(result.hasOwnProperty('dnsDelay'), true);
     }
   });
 
@@ -32,9 +31,9 @@ describe('resolveHostnames', () => {
       'example.com',
     ]);
 
-    expect(results[0]).to.have.own.property('dnsError');
-    expect(results[0]).to.not.have.own.property('dnsDelay');
-    expect(results[1]).to.have.property('dnsDelay');
-    expect(results[1]).to.not.have.own.property('dnsError');
+    assert.equal(results[0].hasOwnProperty('dnsError'), true);
+    assert.equal(results[0].hasOwnProperty('dnsDelay'), false);
+    assert.equal(results[1].hasOwnProperty('dnsDelay'), true);
+    assert.equal(results[1].hasOwnProperty('dnsError'), false);
   });
 });
