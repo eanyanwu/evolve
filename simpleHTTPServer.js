@@ -65,7 +65,7 @@ function createSimpleHTTPServer(requestHandler) {
 
       setTimeout(() => {
         let args = { method, body, path: pathname, searchParams, headers, res };
-        if (pathname.startsWith('/_server_metrics')) {
+        if (pathname.startsWith(SERVER_METRICS_PATH)) {
           metricsHandler(args);
         } else {
           requestHandler(args);
@@ -78,7 +78,7 @@ function createSimpleHTTPServer(requestHandler) {
 }
 
 function metricsHandler({ method, path, res }) {
-  if (path === '/_server_metrics/elu') {
+  if (path === `${SERVER_METRICS_PATH}/elu`) {
     const elu = performance.eventLoopUtilization();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.write(JSON.stringify(elu));
@@ -109,3 +109,5 @@ export default {
     };
   },
 };
+
+export const SERVER_METRICS_PATH = '/_server_metrics';

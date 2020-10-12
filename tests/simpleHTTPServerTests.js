@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert';
 import http from 'http';
 import net from 'net';
-import serv from '../simpleHTTPServer.js';
+import serv , { SERVER_METRICS_PATH } from '../simpleHTTPServer.js';
 
 describe('The simple http server', () => {
   let HOST;
@@ -14,7 +14,7 @@ describe('The simple http server', () => {
     s = serv.startNew({
       host: HOST,
       port: PORT,
-    }, (req, res) => {
+    }, ({ req, res }) => {
       res.end('OK');
     });
   });
@@ -92,5 +92,41 @@ describe('The simple http server', () => {
       assert.equal(newServer.isClosed(), true);
       done();
     });
+  });
+
+  it('exposes event loop utilization', (done) => {
+    const req = http.request({
+      host: HOST,
+      port: PORT,
+      path: `${SERVER_METRICS_PATH}/elu`,
+      timeout: 1000,
+    });
+
+    req.on('timeout', () => {
+      socket.destroy(new Error('Timed out'));
+    });
+
+    req.on('error', (err) => {
+      done(err);
+    });
+
+    req.on('response', (res) => {
+      res.setEncoding('utf8');
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        let elu = JSON.parse(data);
+        assert.equal(elu.hasOwnProperty('active'), true);
+        assert.equal(elu.hasOwnProperty('idle'), true);
+        assert.equal(elu.hasOwnProperty('utilization'), true);
+        req.destroy();
+        done();
+      });
+    });
+
+    req.end();
   });
 });
