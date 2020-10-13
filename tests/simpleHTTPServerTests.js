@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert';
 import http from 'http';
 import net from 'net';
-import serv , { SERVER_METRICS_PATH } from '../simpleHTTPServer.js';
+import SimpleHTTPServer , { SERVER_METRICS_PATH } from '../simpleHTTPServer.js';
 
 describe('The simple http server', () => {
   let HOST;
@@ -11,7 +11,7 @@ describe('The simple http server', () => {
   beforeEach(() => {
     HOST = '127.0.0.1';
     PORT = 8081;
-    s = serv.startNew({
+    s = new SimpleHTTPServer({
       host: HOST,
       port: PORT,
     }, ({ req, res }) => {
@@ -79,7 +79,7 @@ describe('The simple http server', () => {
   });
 
   it('handles the error event', (done) => {
-    let newServer = serv.startNew({
+    let newServer = new SimpleHTTPServer({
       host: HOST,
       port: PORT,
     });

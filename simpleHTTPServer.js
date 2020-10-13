@@ -3,13 +3,13 @@ import { strict as assert } from 'assert';
 import { log, error } from './utils.js';
 import { performance } from 'perf_hooks';
 
-function createSimpleHTTPServer(requestHandler) {
+function createSimpleHTTPServer({ name }, requestHandler) {
   const server = http.createServer();
   server.closed = false;
 
   server.on('listening', () => {
     const { address, port } = server.address();
-    log(`Process is listening on ${address}:${port}.`);
+    log(`${(name || 'Process')} is listening on ${address}:${port}.`);
   });
 
  server.on('error', (err) => {
@@ -63,12 +63,12 @@ function createSimpleHTTPServer(requestHandler) {
       const method = req.method;
       const { pathname, searchParams } = new URL(req.url, `http://${req.headers.host}`);
 
-      setTimeout(() => {
+      setTimeout(async () => {
         let args = { method, body, path: pathname, searchParams, headers, res };
         if (pathname.startsWith(SERVER_METRICS_PATH)) {
           metricsHandler(args);
         } else {
-          requestHandler(args);
+          await requestHandler(args);
         }
       });
     });
@@ -90,24 +90,30 @@ function metricsHandler({ method, path, res }) {
   }
 }
 
-export default {
-  startNew: (options, requestHandler = () => {}) => {
+export default function SimpleHTTPServer(options, requestHandler = () => {}) {
     assert.equal(typeof(options), 'object');
     assert.notEqual(options, null);
     assert.equal(typeof(requestHandler), 'function');
 
-    const server = createSimpleHTTPServer(requestHandler);
+    const server = createSimpleHTTPServer(options, requestHandler);
 
     server.listen(options);
 
-    return {
-      stop: (callback) => {
-        server.close(callback);
-      },
-      isListening: () => server.listening,
-      isClosed: () => server.closed,
+    this.stop = (callback) => {
+      server.close(callback);
     };
-  },
-};
+
+    this.isListening = () => {
+      return server.listening;
+    };
+
+    this.isClosed = () => {
+      return server.closed;
+    };
+
+    this.getAddress = () => {
+      return server.address();
+    };
+}
 
 export const SERVER_METRICS_PATH = '/_server_metrics';

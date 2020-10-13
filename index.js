@@ -1,6 +1,3 @@
-import s from './simpleHTTPServer.js';
+import PingServer from './pingServer.js';
 
-s.startNew({
-  host: 'localhost',
-  port: 8080,
-})
+let s = new PingServer(8080);

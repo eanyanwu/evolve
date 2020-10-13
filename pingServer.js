@@ -1,22 +1,23 @@
-import http from 'http';
+import InMemoryCache from './inMemoryCache.js';
+import SimpleHTTPServer from './simpleHTTPServer.js';
 import resolveHostnames from './resolveHostnames.js';
 import pingAddresses from './pingAddresses.js';
-import cache from './cache.js';
-import { log, error, closeConnection } from './utils.js';
+import { log, error } from './utils.js';
 
-async function subtractCachedTargets(targets) {
-  const promises = [];
+const cache = new InMemoryCache();
+
+function subtractCachedTargets(targets) {
+  const cacheResults = [];
 
   for (const [ hostname, ports ] of Object.entries(targets)) {
     for (const port of ports) {
-      promises.push(cache.get(`pingsvc-${hostname}-${port}`).then((cached) => cached));
+      cacheResults.push(cache.get(`pingsvc-${hostname}-${port}`));
     }
   }
-  const lol = await Promise.allSettled(promises);
-  const cachedResults =lol.filter(p => p.status === 'fulfilled' && p.value)
-                          .map(p => JSON.parse(p.value));
 
-  for (const { hostname, port } of cachedResults) {
+  const cacheHits = cacheResults.filter(r => r).map(h => JSON.parse(h));
+
+  for (const { hostname, port } of cacheHits) {
     const idx = targets[hostname].indexOf(port);
     if (idx > -1) {
       targets[hostname].splice(idx, 1);
@@ -26,16 +27,13 @@ async function subtractCachedTargets(targets) {
       delete targets[hostname];
     }
   }
-  return cachedResults;
+  return cacheHits;
 }
 
 function cacheResults(results, ttl) {
-  const promises = [];
   for (const r of results) {
-    promises.push(cache.set(`pingsvc-${r.hostname}-${r.port}`, JSON.stringify(r), ttl));
+    cache.set(`pingsvc-${r.hostname}-${r.port}`, JSON.stringify(r), ttl);
   }
-
-  return Promise.all(promises);
 }
 
 async function ping(targets) {
@@ -75,82 +73,54 @@ async function ping(targets) {
 }
 
 
-function handleRequest(request, response) {
-  const url = new URL(request.url, `http://${request.headers.host}`);
-
-  if (url.pathname !== '/ping') {
-    closeConnection(response, 404);
+async function handleRequest({ method , path, searchParams, body, res }) {
+  if (path !== '/ping') {
+    res.writeHead(404);
+    res.end();
     return;
   } 
 
-  const skipCache = url.searchParams.get('skipCache') && 
-                    url.searchParams.get('skipCache').toLowerCase() === 'true';
+  const skipCache = searchParams.get('skipCache') && 
+                    searchParams.get('skipCache').toLowerCase() === 'true';
 
-  const cacheTTL = Number.parseInt(url.searchParams.get('cacheTTL')) || 30;
+  const cacheTTL = Number.parseInt(searchParams.get('cacheTTL')) || (30 * 1000);
 
-  log(`REQUESTED ${cacheTTL}s CACHETTL`);
-  
-  if (skipCache) {
-    log(`REQUESTED SKIP CACHE`);
+  let input = {};
+
+  try {
+    input = JSON.parse(body.toString());
+  } catch (e) {
+    error(e);
+    res.writeHead(400);
+    res.end();
+    return;
   }
 
-  let data = '';
+  let output;
 
-  request.setEncoding('utf8');
+  try {
+    const cachedResults = subtractCachedTargets(input);
+    const newResults = await ping(input);
+    cacheResults(newResults, cacheTTL);
+    output = [...newResults, ...cachedResults];
+  } catch (e) {
+    error(e);
+    res.writeHead(500);
+    res.end();
+    return;
+  }
 
-  request.on('data', (chunk) => {
-    data += chunk;
-  });
-  
-  request.on('end', async () => {
-    let input = {};
-    
-    try {
-      input = JSON.parse(data);
-    } catch (e) {
-      error(e);
-      closeConnection(response, 400);
-      return;
-    }
-
-    let output;
-
-    try {
-      const cachedResults = await subtractCachedTargets(input);
-      const newResults = await ping(input);
-      await cacheResults(newResults, cacheTTL);
-      output = [...newResults, ...cachedResults];
-    } catch (e) {
-      error(e);
-      closeConnection(response, 500);
-      return;
-    }
-
-    response.setHeader('Content-Type', 'application/json');
-    response.write(JSON.stringify(output, null, 1));
-    closeConnection(response, 200);
-  });
-
-  request.on('error', (err) => {
-    error(err);
-    closeConnection(response, 400);
-  });
-
-  response.on('error', (err) => {
-    error(err);
-    closeConnection(response, 500);
-  });
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.write(JSON.stringify(output, null, 1));
+  res.end();
 }
 
-const server = http.createServer(handleRequest);
+export default function PingServer(port) {
+  const server = new SimpleHTTPServer({
+    port: 8080,
+    name: 'Ping Server'
+  }, handleRequest);
 
-export default {
-  start: (port) => {
-    server.listen(port);
-    log(`Ping server is listening on port ${port}`);
-    return server.address();
-  },
-  
-  stop: () => server.close(),
+  this.address = server.getAddress();
+  this.stop = (callback) => server.close(callback);
 };
-
