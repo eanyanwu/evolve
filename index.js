@@ -1,3 +1,7 @@
 import PingServer from './pingServer.js';
+import CacheServer from './cacheServer.js';
 
-let s = new PingServer(8080);
+let ping = new PingServer(8080);
+let cache = new CacheServer(8081);
+
+

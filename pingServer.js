@@ -83,7 +83,7 @@ async function handleRequest({ method , path, searchParams, body, res }) {
   const skipCache = searchParams.get('skipCache') && 
                     searchParams.get('skipCache').toLowerCase() === 'true';
 
-  const cacheTTL = Number.parseInt(searchParams.get('cacheTTL')) || (30 * 1000);
+  const cacheTTL = Number.parseInt(searchParams.get('cacheTTL'), 10) || (30 * 1000);
 
   let input = {};
 
@@ -117,7 +117,7 @@ async function handleRequest({ method , path, searchParams, body, res }) {
 
 export default function PingServer(port) {
   const server = new SimpleHTTPServer({
-    port: 8080,
+    port: port,
     name: 'Ping Server'
   }, handleRequest);
 
