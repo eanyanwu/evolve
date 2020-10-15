@@ -5,7 +5,7 @@ import SimpleHTTPServer from '../simpleHTTPServer.js';
 
 const requestAsync = util.promisify(request);
 
-describe.only('simpleRequest', () => {
+describe('simpleRequest', () => {
   it('can get an html page', async () => {
     const result = await requestAsync({
       host: 'example.org',

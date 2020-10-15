@@ -57,5 +57,5 @@ export default function CacheServer(port) {
   });
 
   this.address = server.getAddress();
-  this.stop = (callback) => server.close(callback);
+  this.stop = (callback) => server.stop(callback);
 };
