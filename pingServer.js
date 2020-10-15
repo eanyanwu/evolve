@@ -1,21 +1,20 @@
-import InMemoryCache from './inMemoryCache.js';
 import SimpleHTTPServer from './simpleHTTPServer.js';
+import CacheClient from './cacheClient.js';
 import resolveHostnames from './resolveHostnames.js';
 import pingAddresses from './pingAddresses.js';
 import { log, error } from './utils.js';
 
-const cache = new InMemoryCache();
-
-function subtractCachedTargets(targets) {
-  const cacheResults = [];
+async function subtractCachedTargets(cache, targets) {
+  const promises = [];
 
   for (const [ hostname, ports ] of Object.entries(targets)) {
     for (const port of ports) {
-      cacheResults.push(cache.get(`pingsvc-${hostname}-${port}`));
+      promises.push(cache.get(`pingsvc-${hostname}-${port}`).then((cached) => cached));
     }
   }
-
-  const cacheHits = cacheResults.filter(r => r).map(h => JSON.parse(h));
+  const cacheHits = (await Promise.allSettled(promises))
+                                  .filter(p => p.status === 'fulfilled' && p.value)
+                                  .map(p => JSON.parse(p.value));
 
   for (const { hostname, port } of cacheHits) {
     const idx = targets[hostname].indexOf(port);
@@ -30,10 +29,14 @@ function subtractCachedTargets(targets) {
   return cacheHits;
 }
 
-function cacheResults(results, ttl) {
+function cacheResults(cache, results, ttl) {
+  const promises = [];
+
   for (const r of results) {
-    cache.set(`pingsvc-${r.hostname}-${r.port}`, JSON.stringify(r), ttl);
+    promises.push(cache.set(`pingsvc-${r.hostname}-${r.port}`, JSON.stringify(r), ttl));
   }
+
+  return Promise.all(promises);
 }
 
 async function ping(targets) {
@@ -73,51 +76,55 @@ async function ping(targets) {
 }
 
 
-async function handleRequest({ method , path, searchParams, body, res }) {
-  if (path !== '/ping') {
-    res.writeHead(404);
+
+export default function PingServer({ pingServerHost, pingServerPort, cacheHost, cachePort }) {
+  const cache = new CacheClient({ host: cacheHost, port: cachePort });
+
+  const handleRequest = async function ({ method , path, searchParams, body, res }) {
+    if (path !== '/ping') {
+      res.writeHead(404);
+      res.end();
+      return;
+    } 
+
+    const skipCache = searchParams.get('skipCache') && 
+                      searchParams.get('skipCache').toLowerCase() === 'true';
+
+    const cacheTTL = Number.parseInt(searchParams.get('cacheTTL'), 10) || (30 * 1000);
+
+    let input = {};
+
+    try {
+      input = JSON.parse(body.toString());
+    } catch (e) {
+      error(e);
+      res.writeHead(400);
+      res.end();
+      return;
+    }
+
+    let output;
+
+    try {
+      const cachedResults = await subtractCachedTargets(cache, input);
+      const newResults = await ping(input);
+      await cacheResults(cache, newResults, cacheTTL);
+      output = [...newResults, ...cachedResults];
+    } catch (e) {
+      error(e);
+      res.writeHead(500);
+      res.end();
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.write(JSON.stringify(output, null, 1));
     res.end();
-    return;
-  } 
-
-  const skipCache = searchParams.get('skipCache') && 
-                    searchParams.get('skipCache').toLowerCase() === 'true';
-
-  const cacheTTL = Number.parseInt(searchParams.get('cacheTTL'), 10) || (30 * 1000);
-
-  let input = {};
-
-  try {
-    input = JSON.parse(body.toString());
-  } catch (e) {
-    error(e);
-    res.writeHead(400);
-    res.end();
-    return;
   }
 
-  let output;
-
-  try {
-    const cachedResults = subtractCachedTargets(input);
-    const newResults = await ping(input);
-    cacheResults(newResults, cacheTTL);
-    output = [...newResults, ...cachedResults];
-  } catch (e) {
-    error(e);
-    res.writeHead(500);
-    res.end();
-    return;
-  }
-
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.write(JSON.stringify(output, null, 1));
-  res.end();
-}
-
-export default function PingServer(port) {
   const server = new SimpleHTTPServer({
-    port: port,
+    host: pingServerHost,
+    port: pingServerPort,
     name: 'Ping Server'
   }, handleRequest);
 

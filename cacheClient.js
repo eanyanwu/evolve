@@ -3,7 +3,7 @@ import request from './simpleRequest.js';
 
 const requestAsync = util.promisify(request);
 
-export default function CacheClient(host, port) {
+export default function CacheClient({ host, port }) {
   this.host = host;
   this.port = port;
 }
