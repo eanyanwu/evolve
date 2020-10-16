@@ -1,7 +1,5 @@
 import util from 'util';
-import request from './simpleRequest.js';
-
-const requestAsync = util.promisify(request);
+import { requestAsync } from './simpleRequest.js';
 
 export default function CacheClient({ host, port }) {
   this.host = host;
@@ -32,6 +30,6 @@ CacheClient.prototype.set = async function(key, value, ttl) {
   });
 
   if (statusCode !== 200) {
-    throw new Error('Could not reach cache');
+    throw new Error(`Could not reach cache.\nstatus-code: ${statusCode}`);
   }
 };

@@ -80,7 +80,7 @@ async function ping(targets) {
 export default function PingServer(serverArgs, cacheArgs) {
   const cache = new CacheClient(cacheArgs);
 
-  const handleRequest = async function ({ method , path, searchParams, body, res }) {
+  const handleRequest = async ({ method , path, searchParams, body, res }) => {
     if (path !== '/ping') {
       res.writeHead(404);
       res.end();
@@ -90,7 +90,7 @@ export default function PingServer(serverArgs, cacheArgs) {
     const skipCache = searchParams.get('skipCache') && 
                       searchParams.get('skipCache').toLowerCase() === 'true';
 
-    const cacheTTL = Number.parseInt(searchParams.get('cacheTTL'), 10) || (30 * 1000);
+    const cacheTTL = Number.parseInt(searchParams.get('cacheTTL'), 10) || 0;
 
     let input = {};
 
@@ -128,5 +128,5 @@ export default function PingServer(serverArgs, cacheArgs) {
   }, handleRequest);
 
   this.address = server.getAddress();
-  this.stop = (callback) => server.close(callback);
+  this.stop = (callback) => server.stop(callback);
 };

@@ -1,7 +1,12 @@
 import http from 'http';
+import util from 'util';
 
-export default function simpleRequest(requestArgs, cb) {
+export default function request(requestArgs, cb) {
   const req = http.request(requestArgs);
+
+  if (requestArgs.body) {
+    req.write(requestArgs.body, 'utf8');
+  }
 
   req.on('timeout', () => {
     const err = new Error('Socket timed out');
@@ -36,5 +41,11 @@ export default function simpleRequest(requestArgs, cb) {
     });
   });
 
+  req.on('close', () => {
+    console.log(`Request done ${requestArgs.path}`);
+  });
+
   return req.end();
 };
+
+export const requestAsync = util.promisify(request);

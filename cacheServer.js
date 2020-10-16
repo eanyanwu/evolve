@@ -21,9 +21,9 @@ function handleRequest(cache, { method, path, searchParams, res }) {
   } else if (method === 'POST') {
     const key = searchParams.get('key');
     const value = searchParams.get('value');
-    const ttl = Number.parseInt(searchParams.get('ttl'), 10);
+    const ttl = Number.parseInt(searchParams.get('ttl'), 10) || 0;
 
-    if (!key || !value || !ttl) {
+    if (!key || !value) {
       res.writeHead(400);
       res.end();
       return;

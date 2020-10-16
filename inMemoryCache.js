@@ -11,6 +11,7 @@ export default function InMemoryCache() {
     cache[key] = value;
 
     if (ttl > 0) {
+      console.log('Clearing cache');
       setTimeout(() => {
         delete cache[key];
       }, ttl);

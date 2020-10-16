@@ -31,7 +31,7 @@ function createSimpleHTTPServer({ name, onListening }, requestHandler) {
 
   server.on('close', () => {
     server.closed = true;
-    log('Server closing.');
+    log(`${(name || 'Process')} is now deaf.`);
   });
 
   server.on('request', function attachErrorHandlers(req, res) {
