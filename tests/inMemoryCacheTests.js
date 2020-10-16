@@ -30,6 +30,17 @@ describe('inMemoryCache', () => {
       done();
     }, 101);
   });
+  
+  it('does not expire key if ttl is 0', (done) => {
+    const cache = new InMemoryCache();
+    cache.set('solid', 'cache', 0);
+
+    setTimeout(() => {
+      const result = cache.get('solid');
+      assert.equal(result, 'cache');
+      done();
+    }, 100);
+  });
 
   it('handles keys that do not exist', () => {
     const cache = new InMemoryCache();

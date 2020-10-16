@@ -47,11 +47,10 @@ function handleRequest(cache, { method, path, searchParams, res }) {
   }
 }
 
-export default function CacheServer({ host, port }) {
+export default function CacheServer(serverArgs) {
   const cache = new InMemoryCache();
   const server = new SimpleHTTPServer({
-    host,
-    port,
+    ...serverArgs,
     name: 'Cache Server',
   }, (args) => {
     handleRequest(cache, args);

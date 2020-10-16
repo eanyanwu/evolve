@@ -3,7 +3,7 @@ import { strict as assert } from 'assert';
 import { log, error } from './utils.js';
 import { performance } from 'perf_hooks';
 
-function createSimpleHTTPServer({ name }, requestHandler) {
+function createSimpleHTTPServer({ name, onListening }, requestHandler) {
   const server = http.createServer();
   server.closed = false;
 
@@ -11,6 +11,10 @@ function createSimpleHTTPServer({ name }, requestHandler) {
     const { address, port } = server.address();
     log(`${(name || 'Process')} is listening on ${address}:${port}.`);
   });
+
+  if (onListening) {
+    server.once('listening', onListening);
+  }
 
  server.on('error', (err) => {
    error(err);

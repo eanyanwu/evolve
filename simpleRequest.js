@@ -10,6 +10,7 @@ export default function simpleRequest(requestArgs, cb) {
   });
 
   req.on('error', (err) => {
+    console.log(err);
     cb(err);
   });
 

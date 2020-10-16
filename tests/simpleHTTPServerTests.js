@@ -8,19 +8,20 @@ describe('The simple http server', () => {
   let PORT;
   let s;
 
-  beforeEach(() => {
+  beforeEach((done) => {
     HOST = '127.0.0.1';
     PORT = 8081;
     s = new SimpleHTTPServer({
       host: HOST,
       port: PORT,
+      onListening: done,
     }, ({ req, res }) => {
       res.end('OK');
     });
   });
 
-  afterEach(() => {
-    s.stop();
+  afterEach((done) => {
+    s.stop(done);
   });
 
   it('responds to a valid http request', (done) => {

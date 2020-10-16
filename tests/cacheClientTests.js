@@ -7,12 +7,16 @@ describe('cacheClient', () => {
   let HOST = 'localhost';
   let PORT = 8080;
 
-  beforeEach(() => {
-    s = new CacheServer(PORT);
+  beforeEach((done) => {
+    s = new CacheServer({ 
+      host: HOST,
+      port: PORT,
+      onListening: done,
+    });
   });
   
-  afterEach(() => {
-    s.stop();
+  afterEach((done) => {
+    s.stop(done);
   });
 
   function delay(ms) {
@@ -20,14 +24,14 @@ describe('cacheClient', () => {
   }
 
   it('sets and gets', async () => {
-    const client = new CacheClient(HOST, PORT);
+    const client = new CacheClient({ host: HOST, port: PORT });
     await client.set('hello', 'cache', 1000);
     let result = await client.get('hello');
     assert.equal(result, 'cache');
   });
 
   it('handles ttls', async () => {
-    const client = new CacheClient(HOST, PORT);
+    const client = new CacheClient({ host: HOST, port: PORT });
     await client.set('goodbye', 'cache', 100);
     await delay(101);
     let result = await client.get('goodbye');

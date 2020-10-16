@@ -77,8 +77,8 @@ async function ping(targets) {
 
 
 
-export default function PingServer({ pingServerHost, pingServerPort, cacheHost, cachePort }) {
-  const cache = new CacheClient({ host: cacheHost, port: cachePort });
+export default function PingServer(serverArgs, cacheArgs) {
+  const cache = new CacheClient(cacheArgs);
 
   const handleRequest = async function ({ method , path, searchParams, body, res }) {
     if (path !== '/ping') {
@@ -123,8 +123,7 @@ export default function PingServer({ pingServerHost, pingServerPort, cacheHost, 
   }
 
   const server = new SimpleHTTPServer({
-    host: pingServerHost,
-    port: pingServerPort,
+    ...serverArgs,
     name: 'Ping Server'
   }, handleRequest);
 

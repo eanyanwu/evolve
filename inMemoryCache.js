@@ -10,9 +10,12 @@ export default function InMemoryCache() {
 
     cache[key] = value;
 
-    setTimeout(() => {
-      delete cache[key];
-    }, ttl);
+    if (ttl > 0) {
+      setTimeout(() => {
+        delete cache[key];
+      }, ttl);
+    }
+
   };
 
   this.get = (key) => {
