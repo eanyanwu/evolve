@@ -5,6 +5,7 @@ export default function request(requestArgs, cb) {
   const req = http.request(requestArgs);
 
   if (requestArgs.body) {
+    req.setHeader('Transfer-Encoding', 'chunked');
     req.write(requestArgs.body, 'utf8');
   }
 
@@ -12,6 +13,10 @@ export default function request(requestArgs, cb) {
     const err = new Error('Socket timed out');
     err.code = 'ETIMEDOUT';
     req.destroy(err);
+  });
+
+  req.on('abort', () => {
+    console.log("WHY ABORT");
   });
 
   req.on('error', (err) => {
@@ -39,10 +44,6 @@ export default function request(requestArgs, cb) {
         data,
       });
     });
-  });
-
-  req.on('close', () => {
-    console.log(`Request done ${requestArgs.path}`);
   });
 
   return req.end();

@@ -70,7 +70,7 @@ async function ping(targets) {
 
   log(`DNS: ${connectionTargets.length} valid target(s). ${failedDns.length} invalid target(s)`);
 
-  const connectionResults = await pingAddresses(connectionTargets, 5_000);
+  const connectionResults = await pingAddresses(connectionTargets, 1_000);
 
   return [...connectionResults, ...failedDns];
 }
@@ -92,8 +92,7 @@ export default function PingServer(serverArgs, cacheArgs) {
 
     const cacheTTL = Number.parseInt(searchParams.get('cacheTTL'), 10) || 0;
 
-    let input = {};
-
+    let input = {}
     try {
       input = JSON.parse(body.toString());
     } catch (e) {
